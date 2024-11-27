@@ -34,6 +34,12 @@ char dealer2worker1_name[30];
 char dealer2worker2_name[30];
 char worker2dealer_name[30];
 
+/*struct mq_attr{ 
+int mq_maxmsg = MQ_MAX_MESSAGES;
+
+}attr; 
+*/
+
 int main (int argc, char * argv[])
 {
   if (argc != 1)
@@ -54,6 +60,10 @@ int main (int argc, char * argv[])
 
     // Important notice: make sure that the names of the message queues
     // contain your goup number (to ensure uniqueness during testing)
+
+    
   
+  int worker_id1 = fork();
+
   return (0);
 }

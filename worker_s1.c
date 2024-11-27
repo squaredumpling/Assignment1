@@ -42,6 +42,15 @@ int main (int argc, char * argv[])
     //    until there are no more tasks to do
     //  * close the message queues
 
+    WMessage wmessage;
+
+    while (wmessage.reqest_id != -1) {
+
+    }
+    exit(43);
+
+    printf("I am a worker %d\n", argc);
+
     return(0);
 }
 

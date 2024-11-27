@@ -39,6 +39,9 @@ int main (int argc, char * argv[])
     //      - send the request to the Req message queue
     //    until there are no more requests to send
     //  * close the message queue
+
+    printf("I am here");
+    exit(53);
     
     return (0);
 }
