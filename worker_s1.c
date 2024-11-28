@@ -64,6 +64,15 @@ int main (int argc, char * argv[])
 
     exit(43);
 
+    WMessage wmessage;
+
+    while (wmessage.reqest_id != -1) {
+
+    }
+    exit(43);
+
+    printf("I am a worker %d\n", argc);
+
     return(0);
 }
 

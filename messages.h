@@ -17,6 +17,15 @@
 #ifndef MESSAGES_H
 #define MESSAGES_H
 
+typedef struct{
+    int reqest_id, data;
+}WMessage;
+
+typedef struct{
+    int request_id, result; 
+}RMessage;
+
+
 // define the data structures for your messages here
 
 #endif
