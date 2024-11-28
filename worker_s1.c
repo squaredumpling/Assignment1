@@ -42,6 +42,28 @@ int main (int argc, char * argv[])
     //    until there are no more tasks to do
     //  * close the message queues
 
+    // open queues
+
+    // while loop
+
+    // read from queue
+    printf("read\n");
+
+    rsleep(10000);
+    printf("slept\n");
+
+    // do job
+    printf("did job\n");
+
+    //write resp
+    printf("wrote to queue\n");
+
+    // end while
+
+    // close message queues;
+
+    exit(43);
+
     return(0);
 }
 

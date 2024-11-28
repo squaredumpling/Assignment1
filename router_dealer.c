@@ -54,6 +54,22 @@ int main (int argc, char * argv[])
 
     // Important notice: make sure that the names of the message queues
     // contain your goup number (to ensure uniqueness during testing)
+
+
+    // open message queues
+
+    printf("dealer ready\n\n");
+
+    int pid = fork();
+
+    if (pid == 0) {
+      int retcode = execlp("./worker_s1", "worker1", NULL);
+      printf("code %d\n", retcode);
+    }
+    else {
+      wait(NULL);
+      printf("\nchild finished\n");
+    }
   
   return (0);
 }
