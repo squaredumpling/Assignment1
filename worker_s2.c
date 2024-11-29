@@ -46,6 +46,15 @@ int main (int argc, char * argv[])
     //    until there are no more tasks to do
     //  * close the message queues
 
+    // read channel names
+    char *w1_mq_name = argv[0];
+    char *w2_mq_name = argv[1];
+
+    // open queues
+    mqd_t s1_mq = mq_open(w1_mq_name, O_RDONLY);
+    mqd_t s2_mq = mq_open(w2_mq_name, O_RDONLY);
+
+
     return(0);
 }
 
