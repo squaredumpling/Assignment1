@@ -41,40 +41,37 @@ int main (int argc, char * argv[])
     //      - write the results to the Rsp message queue
     //    until there are no more tasks to do
     //  * close the message queues
-    
 
-    // read channel names
-    char *w1_mq_name = argv[0];
-    char *w2_mq_name = argv[1];
-
-    printf("I am %s\n", argv[0]);
     // open queues
 
-    //while (wmessage.reqest_id != -1) {
+    // while loop
 
     // read from queue
     printf("read\n");
 
-    rsleep(10000000); // 10 seconds max
+    rsleep(10000);
     printf("slept\n");
 
     // do job
-
-    wmessage.reqest_id = 
+    printf("did job\n");
 
     //write resp
-    mq_send(channel, (char*)&wmessage, sizeof(WMessage), 0);
     printf("wrote to queue\n");
 
-    //}
     // end while
 
-    // close message queues
-    mq_close(channel);
+    // close message queues;
 
-    exit(0);
+    exit(43);
 
-    
+    WMessage wmessage;
+
+    while (wmessage.reqest_id != -1) {
+
+    }
+    exit(43);
+
+    printf("I am a worker %d\n", argc);
 
     return(0);
 }
