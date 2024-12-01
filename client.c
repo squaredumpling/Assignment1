@@ -40,7 +40,15 @@ int main (int argc, char * argv[])
     //    until there are no more requests to send
     //  * close the message queue
 
-    printf("I am here");
+    char *request_mq_name = argv[0];
+    mqd_t request_channel = mq_open(request_mq_name, O_WRONLY);
+
+    Request req;
+    while (getNextRequest(&req.job, &req.data, &req.service) > 0) {
+        mq_send(request_channel, (char*)&req, sizeof(Request), 0);
+    }
+
+    mq_close(request_channel);
     exit(53);
     
     return (0);

@@ -41,16 +41,14 @@ int main (int argc, char * argv[])
     //      - write the results to the Rsp message queue
     //    until there are no more tasks to do
     //  * close the message queues
-
-    printf("I am %s\n", argv[0]);
-
     
 
-    // open job queue
-    mqd_t channel = mq_open(argv[1], O_WRONLY);
+    // read channel names
+    char *w1_mq_name = argv[0];
+    char *w2_mq_name = argv[1];
 
-    WMessage wmessage;
-    // we have to init message
+    printf("I am %s\n", argv[0]);
+    // open queues
 
     //while (wmessage.reqest_id != -1) {
 
