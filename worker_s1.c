@@ -42,36 +42,47 @@ int main (int argc, char * argv[])
     //    until there are no more tasks to do
     //  * close the message queues
 
-    // open queues
+    printf("I am a worker %s\n", argv[1]);
 
-    // while loop
+    // open chennels
+    mqd_t dw_channel = mq_open(argv[1], O_RDONLY);
+    //mqd_t wd_channel = mq_open(argv[2], O_WRONLY);
+
+    // test channels
+    if (dw_channel == -1)
+        printf("dw channel creation error\n");
+
+    // if (wd_channel == -1)
+    //     printf("wd channel creation error\n");
+
+    DWMessage dw_message;
+    //WDMessage wd_message;
+
+    // loop until you recieve terminate message
+    //while (dw_message.reqest_id != -1) {
 
     // read from queue
-    printf("read\n");
+    mq_receive(dw_channel, (char*)&dw_message, sizeof(DWMessage), 0);
+    printf("read %d %d\n", dw_message.reqest_id, dw_message.data);
 
-    rsleep(10000);
+    rsleep(10000000); // sleep 10 seconds
     printf("slept\n");
 
     // do job
-    printf("did job\n");
+    //printf("did job\n");
 
     //write resp
-    printf("wrote to queue\n");
+    //printf("wrote to queue\n");
 
     // end while
 
     // close message queues;
+    mq_close(dw_channel);
+
+    
+    mq_unlink(dw_channel);
 
     exit(43);
-
-    WMessage wmessage;
-
-    while (wmessage.reqest_id != -1) {
-
-    }
-    exit(43);
-
-    printf("I am a worker %d\n", argc);
 
     return(0);
 }
