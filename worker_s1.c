@@ -46,17 +46,17 @@ int main (int argc, char * argv[])
 
     // open chennels
     mqd_t dw_channel = mq_open(argv[1], O_RDONLY);
-    //mqd_t wd_channel = mq_open(argv[2], O_WRONLY);
+    mqd_t wd_channel = mq_open(argv[2], O_WRONLY);
 
     // test channels
     if (dw_channel == -1)
         printf("dw channel creation error\n");
 
-    // if (wd_channel == -1)
-    //     printf("wd channel creation error\n");
+     if (wd_channel == -1)
+         printf("wd channel creation error\n");
 
     DWMessage dw_message;
-    //WDMessage wd_message;
+    WDMessage wd_message;
 
     // loop until you recieve terminate message
     //while (dw_message.reqest_id != -1) {
@@ -65,22 +65,29 @@ int main (int argc, char * argv[])
     mq_receive(dw_channel, (char*)&dw_message, sizeof(DWMessage), 0);
     printf("read %d %d\n", dw_message.reqest_id, dw_message.data);
 
-    rsleep(10000000); // sleep 10 seconds
+    rsleep(1000000); // sleep 10 seconds
     printf("slept\n");
 
     // do job
     //printf("did job\n");
 
     //write resp
-    //printf("wrote to queue\n");
+    wd_message.request_id = dw_message.reqest_id;
+    wd_message.result = dw_message.data * 87;
+    mq_send(wd_channel, (char*)&wd_message, sizeof(WDMessage), 0);
+    printf("wrote to queue\n");
 
     // end while
 
-    // close message queues;
+    // close message queues
     mq_close(dw_channel);
+    mq_close(wd_channel);
 
-    
-    mq_unlink(dw_channel);
+    // unlink message queues
+    mq_unlink(argv[1]);
+    mq_unlink(argv[2]);
+
+    printf("%s done\n", argv[0]);
 
     exit(43);
 

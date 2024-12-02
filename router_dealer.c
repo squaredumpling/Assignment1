@@ -72,19 +72,19 @@ int main (int argc, char * argv[])
   mqd_t dw_channel = mq_open(DWChannelName, O_CREAT | O_WRONLY | O_EXCL, 0600, &dwattr);
 
   // open worker to dealer message queue
-  // struct mq_attr wdattr;
-  // wdattr.mq_maxmsg = MQ_MAX_MESSAGES;
-  // wdattr.mq_msgsize = sizeof(WDMessage);
-  // char WDChannelName[40] = RESP_QUEUE_NAME;
-  // mqd_t wd_channel = mq_open(WDChannelName, O_CREAT | O_RDONLY | O_EXCL, 0600, &wdattr);
+  struct mq_attr wdattr;
+  wdattr.mq_maxmsg = MQ_MAX_MESSAGES;
+  wdattr.mq_msgsize = sizeof(WDMessage);
+  char WDChannelName[40] = RESP_QUEUE_NAME;
+  mqd_t wd_channel = mq_open(WDChannelName, O_CREAT | O_RDONLY | O_EXCL, 0600, &wdattr);
 
   // test channels
   if (dw_channel == -1)
     printf("dw channel creation error\n");
   
 
-  //if (wd_channel == -1)
-    //printf("wd channel creation error\n");
+  if (wd_channel == -1)
+    printf("wd channel creation error\n");
   
 
 
@@ -101,7 +101,7 @@ int main (int argc, char * argv[])
       sprintf(worker_name, "serv1worker%d", i); 
 
       // execute the worker code
-      int retcode = execlp("./worker_s1", worker_name, DWChannelName, "WDChannelName", NULL);
+      int retcode = execlp("./worker_s1", worker_name, DWChannelName, WDChannelName, NULL);
       printf("code %d\n", retcode);
     }
   }
@@ -132,21 +132,27 @@ int main (int argc, char * argv[])
   terminate_message.data = 16;
   mq_send(dw_channel, (char*)&terminate_message, sizeof(DWMessage), 0);
 
+  // receive message from workers
+  WDMessage wd_message;
+  mq_receive(wd_channel, (char*)&wd_message, sizeof(WDMessage), 0);
+  printf("received %d %d\n", wd_message.request_id, wd_message.result);
 
   // wait for them to close
   int worker_id;
   while (0 < (worker_id = wait(NULL))) {
-    printf("\nid %d terminated\n", worker_id);
+    printf("%d ", worker_id);
   }
+  printf("\nall workers terminated\n");
 
   // close channels
   mq_close(dw_channel);
-  //mq_close(wd_channel);
+  mq_close(wd_channel);
 
   // unlink channels
   mq_unlink(DWChannelName);
+  mq_unlink(WDChannelName);
 
-  printf("\nworkers finished\n");
+  printf("peace out\n");
 
   return (0);
 }
