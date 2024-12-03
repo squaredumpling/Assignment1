@@ -52,8 +52,8 @@ int main (int argc, char * argv[])
     if (dw_channel == -1)
         printf("dw channel creation error\n");
 
-     if (wd_channel == -1)
-         printf("wd channel creation error\n");
+    if (wd_channel == -1)
+        printf("wd channel creation error\n");
 
     DWMessage dw_message;
     WDMessage wd_message;

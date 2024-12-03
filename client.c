@@ -40,15 +40,25 @@ int main (int argc, char * argv[])
     //    until there are no more requests to send
     //  * close the message queue
 
-    char *request_mq_name = argv[0];
+    char *request_mq_name = argv[3];
     mqd_t request_channel = mq_open(request_mq_name, O_WRONLY);
 
+    // test channels
+    if (request_channel == -1);
+        printf("request channel creation error\n");
+
+    // repeatingly get the next job and send the request to the Req message queue
     Request req;
     while (getNextRequest(&req.job, &req.data, &req.service) > 0) {
         mq_send(request_channel, (char*)&req, sizeof(Request), 0);
     }
 
+    // close message queue
     mq_close(request_channel);
+
+    //unlink message queue
+    mq_unlink(argv[3]); //request_mq_name instead of argv[3]???
+
     exit(53);
     
     return (0);

@@ -64,6 +64,13 @@ int main (int argc, char * argv[])
   // Important notice: make sure that the names of the message queues
   // contain your goup number (to ensure uniqueness during testing)
 
+  // open client to dealer message queue
+  struct mq_attr cdattr;
+  cdattr.mq_maxmsg = MQ_MAX_MESSAGES;
+  cdattr.mq_msgsize = sizeof(CDMessage);
+  client_to_dealer_name[30] = REQ_QUEUE_NAME;
+  mqd_t cd_channel = mq_open(client_to_dealer_name, O_CREAT | O_RDONLY | O_EXCL, 0600, &cdattr);
+
   // open dealer to worker message queue
   struct mq_attr dwattr;
   dwattr.mq_maxmsg = MQ_MAX_MESSAGES;
@@ -79,6 +86,9 @@ int main (int argc, char * argv[])
   mqd_t wd_channel = mq_open(WDChannelName, O_CREAT | O_RDONLY | O_EXCL, 0600, &wdattr);
 
   // test channels
+  if (cd_channel == -1)
+    printf("cd channel creation error\n");
+
   if (dw_channel == -1)
     printf("dw channel creation error\n");
   
@@ -90,7 +100,9 @@ int main (int argc, char * argv[])
 
 
   // create client process
-
+  char client_name[40];
+  execlp("./client", client_name, client_to_dealer_name, NULL);
+  
   // initialize workers
   for (int i=0; i<1; i++) {
     int pid = fork();
@@ -124,7 +136,9 @@ int main (int argc, char * argv[])
 
 
 
-
+  // receive message from client
+  CDMessage cd_message;
+  mq_receive(cd_channel, (char*)&cd_message, sizeof(CDMessage), 0);
 
   // send message to all workers to close
   DWMessage terminate_message;
@@ -145,10 +159,12 @@ int main (int argc, char * argv[])
   printf("\nall workers terminated\n");
 
   // close channels
+  mq_close(cd_channel);
   mq_close(dw_channel);
   mq_close(wd_channel);
 
   // unlink channels
+  mq_unlink(client_to_dealer_name);
   mq_unlink(DWChannelName);
   mq_unlink(WDChannelName);
 
