@@ -59,25 +59,24 @@ int main (int argc, char * argv[])
     WDMessage wd_message;
 
     // loop until you recieve terminate message
-    //while (dw_message.reqest_id != -1) {
+    while (dw_message.reqest_id != -1) {
 
-    // read from queue
-    mq_receive(dw_channel, (char*)&dw_message, sizeof(DWMessage), 0);
-    printf("read %d %d\n", dw_message.reqest_id, dw_message.data);
+        // read from queue
+        mq_receive(dw_channel, (char*)&dw_message, sizeof(DWMessage), 0);
+        printf("read %d %d\n", dw_message.reqest_id, dw_message.data);
 
-    rsleep(1000000); // sleep 10 seconds
-    printf("slept\n");
+        // do service 1
 
-    // do job
-    //printf("did job\n");
+        // sleep max 10 miliseconds
+        rsleep(10000); 
 
-    //write resp
-    wd_message.request_id = dw_message.reqest_id;
-    wd_message.result = dw_message.data * 87;
-    mq_send(wd_channel, (char*)&wd_message, sizeof(WDMessage), 0);
-    printf("wrote to queue\n");
+        //write resp
+        wd_message.request_id = dw_message.reqest_id;
+        wd_message.result = dw_message.data * 4;
+        mq_send(wd_channel, (char*)&wd_message, sizeof(WDMessage), 0);
+        printf("wrote to queue\n");
 
-    // end while
+    }
 
     // close message queues
     mq_close(dw_channel);

@@ -25,7 +25,7 @@
 #include "messages.h"
 #include "request.h"
 
-static void rsleep (int t);
+//static void rsleep (int t);
 
 
 int main (int argc, char * argv[])
@@ -40,25 +40,32 @@ int main (int argc, char * argv[])
     //    until there are no more requests to send
     //  * close the message queue
 
-    char *request_mq_name = argv[3];
-    mqd_t request_channel = mq_open(request_mq_name, O_WRONLY);
+    printf("client ready\n");
+
+    mqd_t request_channel = mq_open(argv[1], O_WRONLY);
 
     // test channels
-    if (request_channel == -1);
+    if (request_channel == -1)
         printf("request channel creation error\n");
 
     // repeatingly get the next job and send the request to the Req message queue
-    Request req;
-    while (getNextRequest(&req.job, &req.data, &req.service) > 0) {
-        mq_send(request_channel, (char*)&req, sizeof(Request), 0);
-    }
+    Request request;
+    //while (getNextRequest(&req.job, &req.data, &req.service) > 0) {
+        //mq_send(request_channel, (char*)&req, sizeof(Request), 0);
+    //}
+    request.job = 1;
+    request.data = 5;
+    request.service = 1;
+    mq_send(request_channel, (char*)&request, sizeof(Request), 0);
 
     // close message queue
     mq_close(request_channel);
 
     //unlink message queue
-    mq_unlink(argv[3]); //request_mq_name instead of argv[3]???
+    mq_unlink(argv[1]);
 
+    printf("client terminated\n");
+    
     exit(53);
     
     return (0);
