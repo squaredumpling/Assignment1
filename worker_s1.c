@@ -30,20 +30,6 @@ static void rsleep (int t);
 
 int main (int argc, char * argv[])
 {
-    // TODO:
-    // (see message_queue_test() in interprocess_basic.c)
-    //  * open the two message queues (whose names are provided in the
-    //    arguments)
-    //  * repeatedly:
-    //      - read from the S1 message queue the new job to do
-    //      - wait a random amount of time (e.g. rsleep(10000);)
-    //      - do the job 
-    //      - write the results to the Rsp message queue
-    //    until there are no more tasks to do
-    //  * close the message queues
-
-    printf("I am a worker %s\n", argv[1]);
-
     // open chennels
     mqd_t dw_channel = mq_open(argv[1], O_RDONLY);
     mqd_t wd_channel = mq_open(argv[2], O_WRONLY);
@@ -59,23 +45,24 @@ int main (int argc, char * argv[])
     WDMessage wd_message;
 
     // loop until you recieve terminate message
-    while (dw_message.reqest_id != -1) {
+    while (true) {
 
         // read from queue
         mq_receive(dw_channel, (char*)&dw_message, sizeof(DWMessage), 0);
-        printf("read %d %d\n", dw_message.reqest_id, dw_message.data);
+        printf("workers1 read %d %d\n", dw_message.request_id, dw_message.data);
 
-        // do service 1
+        if (dw_message.request_id == -1){
+            break;
+        }
 
         // sleep max 10 miliseconds
-        rsleep(10000); 
+        rsleep(10000);
 
-        //write resp
-        wd_message.request_id = dw_message.reqest_id;
-        wd_message.result = dw_message.data * 4;
+        //write response with service 1
+        wd_message.request_id = dw_message.request_id;
+        wd_message.result = service(dw_message.data);
         mq_send(wd_channel, (char*)&wd_message, sizeof(WDMessage), 0);
-        printf("wrote to queue\n");
-
+        printf("%s wrote %d %d\n", argv[0], wd_message.request_id, wd_message.result);
     }
 
     // close message queues
@@ -88,9 +75,7 @@ int main (int argc, char * argv[])
 
     printf("%s done\n", argv[0]);
 
-    exit(43);
-
-    return(0);
+    exit(0);
 }
 
 /*

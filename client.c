@@ -27,46 +27,32 @@
 
 //static void rsleep (int t);
 
-
 int main (int argc, char * argv[])
 {
-    // TODO:
-    // (see message_queue_test() in interprocess_basic.c)
-    //  * open the message queue (whose name is provided in the
-    //    arguments)
-    //  * repeatingly:
-    //      - get the next job request 
-    //      - send the request to the Req message queue
-    //    until there are no more requests to send
-    //  * close the message queue
-
-    printf("client ready\n");
-
     mqd_t request_channel = mq_open(argv[1], O_WRONLY);
 
     // test channels
-    if (request_channel == -1)
-        printf("request channel creation error\n");
+    if (request_channel == -1) printf("request channel creation error\n");
 
-    // repeatingly get the next job and send the request to the Req message queue
+    // repeatingly get the next job and send the request to the dealer queue
     Request request;
-    //while (getNextRequest(&req.job, &req.data, &req.service) > 0) {
-        //mq_send(request_channel, (char*)&req, sizeof(Request), 0);
-    //}
-    request.job = 1;
-    request.data = 5;
-    request.service = 1;
-    mq_send(request_channel, (char*)&request, sizeof(Request), 0);
+    getNextRequest(&request.job, &request.data, &request.service);
+    //while (0 < getNextRequest(&request.job, &request.data, &request.service)) {
+        printf("client has request %d %d %d\n", request.job, request.data, request.service);
+        
+        // make a client dealer message to standardize communication
+        CDMessage cd_message;
+        cd_message.request_id = request.job;
+        cd_message.data = request.data;
+        cd_message.service_id = request.service;
+        mq_send(request_channel, (char*)&cd_message, sizeof(CDMessage), 0);
+    //}     
 
     // close message queue
     mq_close(request_channel);
 
     //unlink message queue
     mq_unlink(argv[1]);
-
-    printf("client terminated\n");
     
-    exit(53);
-    
-    return (0);
+    exit(0);
 }

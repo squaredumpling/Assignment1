@@ -27,35 +27,49 @@
 
 static void rsleep (int t);
 
-char* name = "NO_NAME_DEFINED";
-mqd_t dealer2worker;
-mqd_t worker2dealer;
-
-
 int main (int argc, char * argv[])
 {
-    // TODO:
-    // (see message_queue_test() in interprocess_basic.c)
-    //  * open the two message queues (whose names are provided in the
-    //    arguments)
-    //  * repeatedly:
-    //      - read from the S2 message queue the new job to do
-    //      - wait a random amount of time (e.g. rsleep(10000);)
-    //      - do the job 
-    //      - write the results to the Rsp message queue
-    //    until there are no more tasks to do
-    //  * close the message queues
-
-    // read channel names
-    char *w1_mq_name = argv[0];
-    char *w2_mq_name = argv[1];
-
     // open queues
-    mqd_t s1_mq = mq_open(w1_mq_name, O_RDONLY);
-    mqd_t s2_mq = mq_open(w2_mq_name, O_RDONLY);
+    mqd_t dw_channel = mq_open(argv[1], O_RDONLY);
+    mqd_t wd_channel = mq_open(argv[2], O_WRONLY);
 
+    // channel opening error
+    if (dw_channel == -1) printf("dw channel creation error\n");
+    if (wd_channel == -1) printf("wd channel creation error\n");
 
-    return(0);
+    DWMessage dw_message;
+    WDMessage wd_message;
+
+    // loop until you receive terminate message
+    while (dw_message.request_id != -1){
+        // read from queue
+        mq_receive(dw_channel, (char*)&dw_message, sizeof(DWMessage), 0);
+        printf("workers2 read %d %d\n", dw_message.request_id, dw_message.data);
+
+        // sleep max 10 miliseconds
+        rsleep(10000); 
+
+        // do service 2
+        dw_message.data = service(dw_message.data);
+
+        //write response
+        wd_message.request_id = dw_message.request_id;
+        wd_message.result = dw_message.data;
+        mq_send(wd_channel, (char*)&wd_message, sizeof(WDMessage), 0);
+        printf("%s wrote %d %d\n", argv[0], wd_message.request_id, wd_message.result);
+    }
+
+    // close message queues
+    mq_close(dw_channel);
+    mq_close(wd_channel);
+
+    // unlink message queues
+    mq_unlink(argv[1]);
+    mq_unlink(argv[2]);
+
+    printf("%s done\n", argv[0]);
+
+    exit(0);
 }
 
 /*

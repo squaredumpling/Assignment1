@@ -28,18 +28,12 @@
 
 #include "settings.h"  
 #include "messages.h"
-#include "request.h"
 
-char client_to_dealer_name[30] = REQ_QUEUE_NAME;
-char dealer_to_worker1_name[30] = W1_QUEUE_NAME;
-char dealer_to_worker2_name[30] = W2_QUEUE_NAME;
-char worker_to_dealer_name[30] = RESP_QUEUE_NAME;
+char client_to_dealer_name[30] = "/request_queue";
+char dealer_to_worker1_name[30] = "/worker1_queue";
+char dealer_to_worker2_name[30] = "/worker2_queue";
+char worker_to_dealer_name[30] = "/response_queue";
 
-/*struct mq_attr{ 
-int mq_maxmsg = MQ_MAX_MESSAGES;
-
-}attr; 
-*/
 
 int main (int argc, char * argv[])
 {
@@ -51,12 +45,9 @@ int main (int argc, char * argv[])
   
   printf("dealer ready\n\n");
 
-  // mq_unlink(client_to_dealer_name);
-  // mq_unlink(dealer_to_worker1_name); 
-  // mq_unlink(worker_to_dealer_name);
-
-
-
+  mq_unlink(client_to_dealer_name);
+  mq_unlink(dealer_to_worker1_name); 
+  mq_unlink(worker_to_dealer_name);
 
   // open client to dealer message queue
   struct mq_attr cdattr;
@@ -85,7 +76,6 @@ int main (int argc, char * argv[])
   
   if (wd_channel == -1)
     printf("wd channel creation error\n");
-  
 
 
 
@@ -95,8 +85,8 @@ int main (int argc, char * argv[])
     execlp("./client", "client", client_to_dealer_name, NULL);
   }
 
-  // initialize workers
-  for (int i=0; i<1; i++) {
+  // initialize service 1 workers
+  for (int i=0; i<N_SERV1; i++) {
     int pid = fork();
 
     if (pid == 0) {
@@ -110,43 +100,49 @@ int main (int argc, char * argv[])
     }
   }
 
+  // initialize service 2 workers
+  for (int i=0; i<N_SERV2; i++) {
+    int pid = fork();
 
+    if (pid == 0) {
+      // initialize worker name by index
+      char worker_name[40];
+      sprintf(worker_name, "serv2worker%d", i);
 
+      // execute the worker code
+      int retcode = execlp("./worker_s2", worker_name, dealer_to_worker1_name, worker_to_dealer_name, NULL);
+      printf("worker error %d\n", retcode);
+    }
+  }
 
 
   // while responses are not done manage everyone
-  bool once = true;
-  while (once){
+  while (true){
 
     // receive request from client
-    Request request;
-    mq_receive(cd_channel, (char*)&request, sizeof(Request), 0);
-    printf("request %d %d %d\n", request.job, request.data, request.service);
+    CDMessage cd_message;
+    mq_receive(cd_channel, (char*)&cd_message, sizeof(CDMessage), 0);
+    printf("dealer got request %d %d %d\n", cd_message.request_id, cd_message.data, cd_message.service_id);
 
     // pass request to workers 
     DWMessage dw_message;
-    dw_message.reqest_id = 3;
-    dw_message.data = 16;
+    dw_message.request_id = cd_message.request_id;
+    dw_message.data = cd_message.data;
     mq_send(dw_channel, (char*)&dw_message, sizeof(DWMessage), 0);
 
     // receive message from workers
     WDMessage wd_message;
     mq_receive(wd_channel, (char*)&wd_message, sizeof(WDMessage), 0);
     
-
     // print response
-    printf("response %d %d\n", wd_message.request_id, wd_message.result);
+    printf("dealer got response %d %d\n", wd_message.request_id, wd_message.result);
 
-    once = false;
+    break;
   }
-
-
-
-  
 
   // send message to all workers to close
    DWMessage terminate_message;
-   terminate_message.reqest_id = -1;
+   terminate_message.request_id = -1;
    terminate_message.data = 2;
    mq_send(dw_channel, (char*)&terminate_message, sizeof(DWMessage), 0);
 

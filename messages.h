@@ -24,7 +24,7 @@ typedef struct{
 
 // dealer to worker message
 typedef struct{
-    int reqest_id, data;
+    int request_id, data;
 }DWMessage;
 
 // worker to dealer message
