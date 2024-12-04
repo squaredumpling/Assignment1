@@ -43,21 +43,27 @@ int main (int argc, char * argv[])
     char *request_mq_name = argv[3];
     mqd_t request_channel = mq_open(request_mq_name, O_WRONLY);
 
-    // test channels
-    if (request_channel == -1);
-        printf("request channel creation error\n");
+    // check for channel opening errors
+    if (request_channel == -1)  printf("open request channel error\n");
 
     // repeatingly get the next job and send the request to the Req message queue
     Request req;
-    while (getNextRequest(&req.job, &req.data, &req.service) > 0) {
-        mq_send(request_channel, (char*)&req, sizeof(Request), 0);
+    while (getNextRequest(&req.job, &req.data, &req.service) == NO_ERR) {
+        if (mq_send(request_channel, (char*)&req, sizeof(Request), 0) == -1) {
+            perror("client mq_send failed");
+            break;
+        }
     }
+
+    // Notify dealer that client has no requests
+    Request no_requests = {-1, 0, 0};
+    if (mq_send(request_channel, (char*)&no_requests, sizeof(Request), 0) == -1) perror("client termination mq_send failed");
 
     // close message queue
     mq_close(request_channel);
 
     //unlink message queue
-    mq_unlink(argv[3]); //request_mq_name instead of argv[3]???
+    mq_unlink(request_mq_name); //request_mq_name instead of argv[3]???
 
     exit(53);
     

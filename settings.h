@@ -7,12 +7,6 @@
 #define N_SERV1    	        4
 #define N_SERV2    	        3
 #define MQ_MAX_MESSAGES     10
-#define REQ_QUEUE_NAME      "/request_queue"
-#define W1_QUEUE_NAME       "/worker1_queue"
-#define W2_QUEUE_NAME       "/worker2_queue"
-#define RESP_QUEUE_NAME     "/response_queue" 
-#define STOP_MSG            "exit"    
-
 
 #endif
 

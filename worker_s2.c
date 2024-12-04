@@ -2,7 +2,7 @@
  * Operating Systems  (2INCO)  Practical Assignment
  * Interprocess Communication
  *
- * STUDENT_NAME_1 (STUDENT_NR_1)
+ * Filip Cuciuc (1659626)
  * STUDENT_NAME_2 (STUDENT_NR_2)
  *
  * Grading:
@@ -23,13 +23,10 @@
 #include <time.h>       // for time()
 
 #include "messages.h"
+#include "request.h"
 #include "service2.h"
 
 static void rsleep (int t);
-
-char* name = "NO_NAME_DEFINED";
-mqd_t dealer2worker;
-mqd_t worker2dealer;
 
 
 int main (int argc, char * argv[])
@@ -46,16 +43,56 @@ int main (int argc, char * argv[])
     //    until there are no more tasks to do
     //  * close the message queues
 
-    // read channel names
-    char *w1_mq_name = argv[0];
-    char *w2_mq_name = argv[1];
 
-    // open queues
-    mqd_t s1_mq = mq_open(w1_mq_name, O_RDONLY);
-    mqd_t s2_mq = mq_open(w2_mq_name, O_RDONLY);
+    // open chennels
+    mqd_t dw_channel = mq_open(argv[0], O_RDONLY);
+    mqd_t wd_channel = mq_open(argv[1], O_WRONLY);
 
+    // channel opening errors
+    if (dw_channel == -1) printf("dw channel opening error\n");
+    if (wd_channel == -1) printf("wd channel opening error\n");
 
-    return(0);
+    DWMessage dw_message;
+    WDMessage wd_message;
+
+    // loop until you recieve terminate message
+    while (dw_message.jobID != NO_REQ) {
+        // read from queue S1
+        if (mq_receive(dw_channel, (char*)&dw_message, sizeof(DWMessage), 0) == -1) {
+            perror("worker2 mq_receive failed");
+            break;
+        }        printf("read %d %d\n", dw_message.jobID, dw_message.data);
+
+        printf("sleep\n");
+        rsleep(1000000); // sleep 10 seconds
+        printf("woke up\n");
+
+        // do job
+        // assigned service result directly to message
+
+        //write resp
+        wd_message.jobID = dw_message.jobID;
+        wd_message.result = service(dw_message.data);
+        if (mq_send(wd_channel, (char*)&wd_message, sizeof(WDMessage), 0) == -1) {
+            perror("worker2 mq_send failed");
+            break;
+        }
+        printf("wrote to queue\n");
+    }
+    // end while
+
+    WDMessage finished_jobs = {-1, 0};
+    mq_send(wd_channel, (char*)&finished_jobs, sizeof(WDMessage), 0);
+
+    // close message queues
+    mq_close(dw_channel);
+    mq_close(wd_channel);
+
+    // unlink message queues
+    mq_unlink(argv[0]);
+    mq_unlink(argv[1]);
+
+    exit(44);
 }
 
 /*

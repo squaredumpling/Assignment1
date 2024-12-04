@@ -28,17 +28,15 @@
 
 #include "settings.h"  
 #include "messages.h"
+#include "request.h"
 
-char client_to_dealer_name[30];
-char dealer_to_worker1_name[30];
-char dealer_to_worker2_name[30];
-char worker_to_dealer_name[30];
 
-/*struct mq_attr{ 
-int mq_maxmsg = MQ_MAX_MESSAGES;
+#define REQ_QUEUE_NAME      "/request_queue_group_48"
+#define W1_QUEUE_NAME       "/worker1_queue_group_48"
+#define W2_QUEUE_NAME       "/worker2_queue_group_48"
+#define RESP_QUEUE_NAME     "/response_queue_group_48"
+#define RESP_QUEUE_NAME     "/response_queue_group_48"
 
-}attr; 
-*/
 
 int main (int argc, char * argv[])
 {
@@ -63,93 +61,135 @@ int main (int argc, char * argv[])
 
   // Important notice: make sure that the names of the message queues
   // contain your goup number (to ensure uniqueness during testing)
+  char client_to_dealer_name[25];
+  char dealer_to_worker1_name[25];
+  char dealer_to_worker2_name[25];
+  char worker_to_dealer_name[25];
 
-  // open client to dealer message queue
-  struct mq_attr cdattr;
-  cdattr.mq_maxmsg = MQ_MAX_MESSAGES;
-  cdattr.mq_msgsize = sizeof(CDMessage);
-  client_to_dealer_name[30] = REQ_QUEUE_NAME;
-  mqd_t cd_channel = mq_open(client_to_dealer_name, O_CREAT | O_RDONLY | O_EXCL, 0600, &cdattr);
+  // create and open client to dealer message queue
+  struct mq_attr attr;
+  attr.mq_maxmsg = MQ_MAX_MESSAGES;
+  attr.mq_msgsize = sizeof(Request);
+  client_to_dealer_name[25] = REQ_QUEUE_NAME;
+  mqd_t cd_channel = mq_open(client_to_dealer_name, O_CREAT | O_RDONLY | O_EXCL, 0600, &attr);
 
-  // open dealer to worker message queue
-  struct mq_attr dwattr;
-  dwattr.mq_maxmsg = MQ_MAX_MESSAGES;
-  dwattr.mq_msgsize = sizeof(DWMessage);
-  char DWChannelName[40] = W1_QUEUE_NAME;
-  mqd_t dw_channel = mq_open(DWChannelName, O_CREAT | O_WRONLY | O_EXCL, 0600, &dwattr);
+  // create and open dealer to worker1 message queue
+  attr.mq_msgsize = sizeof(DWMessage);
+  dealer_to_worker1_name[25] = W1_QUEUE_NAME;
+  mqd_t w1_channel = mq_open(dealer_to_worker1_name, O_CREAT | O_WRONLY | O_EXCL, 0600, &attr);
 
-  // open worker to dealer message queue
-  struct mq_attr wdattr;
-  wdattr.mq_maxmsg = MQ_MAX_MESSAGES;
-  wdattr.mq_msgsize = sizeof(WDMessage);
-  char WDChannelName[40] = RESP_QUEUE_NAME;
-  mqd_t wd_channel = mq_open(WDChannelName, O_CREAT | O_RDONLY | O_EXCL, 0600, &wdattr);
+  // create and open dealer to worker2 message queue
+  dealer_to_worker2_name[25] = W2_QUEUE_NAME;
+  mqd_t w2_channel = mq_open(dealer_to_worker2_name, O_CREAT | O_WRONLY | O_EXCL, 0600, &attr);
 
-  // test channels
-  if (cd_channel == -1)
-    printf("cd channel creation error\n");
+  // create and open worker to dealer message queue,
+  attr.mq_msgsize = sizeof(WDMessage);
+  worker_to_dealer_name[25] = RESP_QUEUE_NAME;
+  mqd_t wd_channel = mq_open(worker_to_dealer_name, O_CREAT | O_RDONLY | O_EXCL, 0600, &attr);
 
-  if (dw_channel == -1)
-    printf("dw channel creation error\n");
-  
+  // check for channel opening errors
+  if (cd_channel == -1) printf("cd channel creation error\n");
+  if (w1_channel == -1) printf("w1 channel creation error\n");
+  if (w2_channel == -1) printf("w2 channel creation error\n");
+  if (wd_channel == -1) printf("wd channel creation error\n");
 
-  if (wd_channel == -1)
-    printf("wd channel creation error\n");
-  
+  if (cd_channel == -1 || w1_channel == -1 || w2_channel == -1 || wd_channel == -1) {
+    perror("Channel(s) mq_open failed");
+    // close channels
+    mq_close(cd_channel);
+    mq_close(w1_channel);
+    mq_close(w2_channel);
+    mq_close(wd_channel);
 
-
+    // unlink channels
+    mq_unlink(client_to_dealer_name);
+    mq_unlink(dealer_to_worker1_name);
+    mq_unlink(dealer_to_worker2_name);
+    mq_unlink(worker_to_dealer_name);
+    exit(1);
+  }
 
   // create client process
-  char client_name[40];
-  execlp("./client", client_name, client_to_dealer_name, NULL);
-  
-  // initialize workers
-  for (int i=0; i<1; i++) {
-    int pid = fork();
+  pid_t client_pid = fork();
 
-    if (pid == 0) {
-      // initialize worker name by index
-      char worker_name[40];
-      sprintf(worker_name, "serv1worker%d", i); 
+  if (client_pid == -1) {
+    perror("fork() failed - client process");
+    exit(1);
+  }
+  if (client_pid == 0) {
+    printf("client process started with pid: %d\n", getpid());
+    execlp("./client", REQ_QUEUE_NAME, NULL);
+    perror("execlp() failed - client process");
+    exit(2);
+  }
 
-      // execute the worker code
-      int retcode = execlp("./worker_s1", worker_name, DWChannelName, WDChannelName, NULL);
-      printf("code %d\n", retcode);
+  pid_t worker_pids[];
+  for (int i = 1; i <= N_SERV1 + N_SERV2; i++) {
+    worker_pids[i] = fork();
+    if (worker_pids[i] == -1) {
+      perror("fork() failed - worker process");
+      exit(1);
+    }
+    if (worker_pids[i] == 0) {
+      if (i <= N_SERV1) {
+        printf("worker1 (%d) process started with pid: %d\n", i, getpid());
+        execlp("./worker_s1", W1_QUEUE_NAME, RESP_QUEUE_NAME, NULL);
+        perror("execlp() failed - worker1 process");
+        exit(3);
+      }
+
+      printf("worker2 (%d) process started with pid: %d\n", i - N_SERV1, getpid());
+      execlp("./worker_s2", W2_QUEUE_NAME, RESP_QUEUE_NAME, NULL);
+      perror("execlp() failed - worker2 process");
+      exit(4);
+    }
+    printf("created worker process with index %d\n", i);
+  }
+
+  Request cd_message = {0, 0, 0};
+  while (cd_message.job != NO_REQ) {
+    if (mq_receive(cd_channel, (char*)&cd_message, sizeof(Request), 0) == -1) {
+      perror("router-dealer mq_receive() failed");
+      break;
+    }
+
+    DWMessage sx_message;
+    sx_message.jobID = cd_message.job;
+    sx_message.data = 16;
+    if (cd_message.service == 1) {
+      if (mq_send(w1_channel, (char *)&sx_message, sizeof(DWMessage), 0) == -1) {
+        perror("router-dealer mq_send() ro S1 failed");
+        break;
+      }
+    } else if (cd_message.service == 2) {
+      if (mq_send(w2_channel, (char *)&sx_message, sizeof(DWMessage), 0) == -1) {
+        perror("router-dealer mq_send() to S2 failed");
+        break;
+      }
     }
   }
 
+ // TODO: think about how to signal when the response queue is empty (when both w1 and w2 are finished) and add the waitpid() stuff
 
-
-
-
-  // big while responses are not done
-
-    // read request from clients
-
-    // pass request to workers 
-
-    // read reasponse from woarkers 
-
-    // print response
-
-  // end while
-
-
-
-  // receive message from client
-  CDMessage cd_message;
-  mq_receive(cd_channel, (char*)&cd_message, sizeof(CDMessage), 0);
-
-  // send message to all workers to close
-  DWMessage terminate_message;
-  terminate_message.reqest_id = 3;
-  terminate_message.data = 16;
-  mq_send(dw_channel, (char*)&terminate_message, sizeof(DWMessage), 0);
-
-  // receive message from workers
   WDMessage wd_message;
   mq_receive(wd_channel, (char*)&wd_message, sizeof(WDMessage), 0);
-  printf("received %d %d\n", wd_message.request_id, wd_message.result);
+  printf("received %d %d\n", wd_message.jobID, wd_message.result);
+
+
+  // initialize workers
+  // for (int i=0; i<1; i++) {
+  //   int pid = fork();
+  //
+  //   if (pid == 0) {
+  //     // initialize worker name by index
+  //     char worker_name[40];
+  //     sprintf(worker_name, "serv1worker%d", i);
+  //
+  //     // execute the worker code
+  //     int retcode = execlp("./worker_s1", worker_name, DWChannelName, WDChannelName, NULL);
+  //     printf("code %d\n", retcode);
+  //   }
+  // }
 
   // wait for them to close
   int worker_id;
@@ -160,13 +200,15 @@ int main (int argc, char * argv[])
 
   // close channels
   mq_close(cd_channel);
-  mq_close(dw_channel);
+  mq_close(w1_channel);
+  mq_close(w2_channel);
   mq_close(wd_channel);
 
   // unlink channels
   mq_unlink(client_to_dealer_name);
-  mq_unlink(DWChannelName);
-  mq_unlink(WDChannelName);
+  mq_unlink(dealer_to_worker1_name);
+  mq_unlink(dealer_to_worker2_name);
+  mq_unlink(worker_to_dealer_name);
 
   printf("peace out\n");
 

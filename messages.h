@@ -17,19 +17,14 @@
 #ifndef MESSAGES_H
 #define MESSAGES_H
 
-// client to dealer message
-typedef struct{
-    int request_id, service_id, data;
-}CDMessage;
-
 // dealer to worker message
-typedef struct{
-    int reqest_id, data;
-}DWMessage;
+typedef struct {
+    int jobID, data;
+} DWMessage;
 
 // worker to dealer message
-typedef struct{
-    int request_id, result; 
-}WDMessage;
+typedef struct {
+    int jobID, result;
+} WDMessage;
 
 #endif
