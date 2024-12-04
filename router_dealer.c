@@ -116,41 +116,46 @@ int main (int argc, char * argv[])
   }
 
 
-  // while responses are not done manage everyone
-  while (true){
-
+  // while responses are not finished manage everyone
+  int requests_todo = 0;
+  bool requests_ongoing = true;
+  while (requests_ongoing || (0 < requests_todo)){
     // receive request from client
     CDMessage cd_message;
     mq_receive(cd_channel, (char*)&cd_message, sizeof(CDMessage), 0);
     printf("dealer got request %d %d %d\n", cd_message.request_id, cd_message.data, cd_message.service_id);
 
-    // pass request to workers 
-    DWMessage dw_message;
-    dw_message.request_id = cd_message.request_id;
-    dw_message.data = cd_message.data;
-    mq_send(dw_channel, (char*)&dw_message, sizeof(DWMessage), 0);
+    if (cd_message.request_id == -1) {
+      requests_ongoing = false;
+    }
 
-    // receive message from workers
-    WDMessage wd_message;
-    mq_receive(wd_channel, (char*)&wd_message, sizeof(WDMessage), 0);
-    
-    // print response
-    printf("dealer got response %d %d\n", wd_message.request_id, wd_message.result);
+    // pass request to workers if there are any left
+    if (requests_ongoing){ 
+      DWMessage dw_message;
+      dw_message.request_id = cd_message.request_id;
+      dw_message.data = cd_message.data;
+      mq_send(dw_channel, (char*)&dw_message, sizeof(DWMessage), 0);
+      requests_todo++;
 
-    break;
+      // receive message from workers
+      WDMessage wd_message;
+      mq_receive(wd_channel, (char*)&wd_message, sizeof(WDMessage), 0);
+      requests_todo--;
+      
+      // print response
+      printf("dealer got response %d %d\n", wd_message.request_id, wd_message.result);
+    }    
   }
 
   // send message to all workers to close
-   DWMessage terminate_message;
-   terminate_message.request_id = -1;
-   terminate_message.data = 2;
-   mq_send(dw_channel, (char*)&terminate_message, sizeof(DWMessage), 0);
+  for (int i=0; i<N_SERV1; i++){
+    DWMessage terminate_message = {-1, 0};
+    mq_send(dw_channel, (char*)&terminate_message, sizeof(DWMessage), 0);
+  }
 
   // wait for them to close
   int worker_id;
-  while (0 < (worker_id = wait(NULL))) {
-    
-  }
+  while (0 < (worker_id = wait(NULL))) {}
   printf("\nall workers terminated\n");
 
   // close channels
