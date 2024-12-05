@@ -40,11 +40,6 @@ int main (int argc, char * argv[])
   // argument safety
   if (argc != 1) { fprintf (stderr, "%s: invalid arguments\n", argv[0]); exit(1); }
 
-  // mq_unlink(client_to_dealer_name);
-  // mq_unlink(dealer_to_worker1_name);
-  // mq_unlink(dealer_to_worker2_name);
-  // mq_unlink(worker_to_dealer_name);
-
   // open client to dealer message queue
   struct mq_attr cdattr;
   cdattr.mq_maxmsg = MQ_MAX_MESSAGES;
