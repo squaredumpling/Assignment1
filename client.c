@@ -20,12 +20,10 @@
 #include <errno.h>      // for perror()
 #include <unistd.h>     // for getpid()
 #include <mqueue.h>     // for mq-stuff
-#include <time.h>       // for time()
 
 #include "messages.h"
 #include "request.h"
 
-//static void rsleep (int t);
 
 int main (int argc, char * argv[])
 {
@@ -38,7 +36,7 @@ int main (int argc, char * argv[])
     // repeatingly get the next job and send the request to the dealer queue
     Request request;
     while (getNextRequest(&request.job, &request.data, &request.service) == 0) {
-        printf("client has request %d %d %d\n", request.job, request.data, request.service);
+        //printf("client has requested %d %d %d\n", request.job, request.data, request.service);
         
         // make a client dealer message to standardize communication
         CDMessage cd_message;

@@ -42,21 +42,21 @@ int main (int argc, char * argv[])
 
     // loop until you receive terminate message
     while (true){
+
         // read from queue
         mq_receive(dw2_channel, (char*)&dw_message, sizeof(DWMessage), 0);
-        printf("%s read %d %d\n", argv[0], dw_message.request_id, dw_message.data);
+        // printf("%s read %d %d\n", argv[0], dw_message.request_id, dw_message.data);
 
         if (dw_message.request_id == -1) break;
 
         // sleep max 10 miliseconds
         rsleep(10000); 
 
-
         //write response with service 2
         wd_message.request_id = dw_message.request_id;
         wd_message.result = service(dw_message.data);
         mq_send(wd_channel, (char*)&wd_message, sizeof(WDMessage), 0);
-        printf("%s wrote %d %d\n", argv[0], wd_message.request_id, wd_message.result);
+        // printf("%s wrote %d %d\n", argv[0], wd_message.request_id, wd_message.result);
     }
 
     // close message queues
@@ -67,7 +67,7 @@ int main (int argc, char * argv[])
     mq_unlink(argv[1]);
     mq_unlink(argv[2]);
 
-    printf("%s done\n", argv[0]);
+    // printf("%s done\n", argv[0]);
 
     exit(0);
 }

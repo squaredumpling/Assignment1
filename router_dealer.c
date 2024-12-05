@@ -25,8 +25,6 @@
 #include <errno.h>    
 #include <unistd.h>    // for execlp
 #include <mqueue.h>    // for mq
-#include <time.h>      // for time()
-
 
 #include "settings.h"  
 #include "messages.h"
@@ -42,7 +40,7 @@ int main (int argc, char * argv[])
   // argument safety
   if (argc != 1) fprintf (stderr, "%s: invalid arguments\n", argv[0]);
   
-  printf("dealer ready\n\n");
+  // printf("dealer ready\n\n");
 
   mq_unlink(client_to_dealer_name);
   mq_unlink(dealer_to_worker1_name); 
@@ -123,7 +121,7 @@ int main (int argc, char * argv[])
       // receive request from client
       CDMessage cd_message;
       mq_receive(cd_channel, (char*)&cd_message, sizeof(CDMessage), 0);
-      printf("dealer got request %d %d %d\n", cd_message.request_id, cd_message.data, cd_message.service_id);
+      // printf("dealer got request %d %d %d\n", cd_message.request_id, cd_message.data, cd_message.service_id);
 
       if (cd_message.request_id == -1){
         requests_ongoing = false;
@@ -136,14 +134,13 @@ int main (int argc, char * argv[])
       dw_message.request_id = cd_message.request_id;
       dw_message.data = cd_message.data;
       
+      // select type of worker
       switch (cd_message.service_id){
         case 1: mq_send(dw1_channel, (char*)&dw_message, sizeof(DWMessage), 0); break;
         case 2: mq_send(dw2_channel, (char*)&dw_message, sizeof(DWMessage), 0); break;
       }
       requests_todo++;
     }
-    
-    //usleep(1000000); // 1 second
 
     for (int i=0; i<MQ_MAX_MESSAGES && (0 < requests_todo); i++){
       // receive message from workers
@@ -152,13 +149,11 @@ int main (int argc, char * argv[])
       requests_todo--;
 
       // print response
-      printf("dealer got response %d %d\n", wd_message.request_id, wd_message.result);
+      printf("%d -> %d\n", wd_message.request_id, wd_message.result);
     }  
-
-    //usleep(1000000); // 1 second
   }
 
-  printf("read well\n");
+  // printf("read well\n");
 
   // send message to all workers1 to close
   for (int i=0; i<N_SERV1; i++){
@@ -175,7 +170,7 @@ int main (int argc, char * argv[])
   // wait for them to close
   int worker_id;
   while (0 < (worker_id = wait(NULL))) {}
-  printf("\nall workers terminated\n");
+  //printf("\nall workers terminated\n");
 
   // close channels
   mq_close(cd_channel);
@@ -189,7 +184,7 @@ int main (int argc, char * argv[])
   mq_unlink(dealer_to_worker2_name);
   mq_unlink(worker_to_dealer_name);
 
-  printf("\npeace out\n");
+  //printf("\npeace out\n");
 
   return (0);
 }
