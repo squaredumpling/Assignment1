@@ -24,24 +24,22 @@
 #include <errno.h>    
 #include <unistd.h>    // for execlp
 #include <mqueue.h>    // for mq
+#include <time.h>      // for time()
 
 
 #include "settings.h"  
 #include "messages.h"
 
-char client_to_dealer_name[30] = "/request_queue";
-char dealer_to_worker1_name[30] = "/worker1_queue";
-char dealer_to_worker2_name[30] = "/worker2_queue";
-char worker_to_dealer_name[30] = "/response_queue";
+char client_to_dealer_name[30] = "/request_queue_group48";
+char dealer_to_worker1_name[30] = "/worker1_queue_group48";
+char dealer_to_worker2_name[30] = "/worker2_queue_group48";
+char worker_to_dealer_name[30] = "/response_queue_group48";
 
 
 int main (int argc, char * argv[])
 {
   // argument safety
-  if (argc != 1)
-  {
-    fprintf (stderr, "%s: invalid arguments\n", argv[0]);
-  }
+  if (argc != 1) fprintf (stderr, "%s: invalid arguments\n", argv[0]);
   
   printf("dealer ready\n\n");
 
@@ -68,14 +66,11 @@ int main (int argc, char * argv[])
   mqd_t wd_channel = mq_open(worker_to_dealer_name, O_CREAT | O_RDONLY | O_EXCL, 0600, &wdattr);
 
   // test channels
-  if (cd_channel == -1)
-    printf("cd channel creation error\n");
+  if (cd_channel == -1) printf("cd channel creation error\n");
 
-  if (dw_channel == -1)
-    printf("dw channel creation error\n");
+  if (dw_channel == -1) printf("dw channel creation error\n");
   
-  if (wd_channel == -1)
-    printf("wd channel creation error\n");
+  if (wd_channel == -1) printf("wd channel creation error\n");
 
 
 
@@ -120,32 +115,43 @@ int main (int argc, char * argv[])
   int requests_todo = 0;
   bool requests_ongoing = true;
   while (requests_ongoing || (0 < requests_todo)){
-    // receive request from client
-    CDMessage cd_message;
-    mq_receive(cd_channel, (char*)&cd_message, sizeof(CDMessage), 0);
-    printf("dealer got request %d %d %d\n", cd_message.request_id, cd_message.data, cd_message.service_id);
 
-    if (cd_message.request_id == -1) {
-      requests_ongoing = false;
-    }
+    for (int i=0; i<MQ_MAX_MESSAGES; i++){
+      // receive request from client
+      CDMessage cd_message;
+      mq_receive(cd_channel, (char*)&cd_message, sizeof(CDMessage), 0);
+      printf("dealer got request %d %d %d\n", cd_message.request_id, cd_message.data, cd_message.service_id);
 
-    // pass request to workers if there are any left
-    if (requests_ongoing){ 
+      if (cd_message.request_id == -1){
+        requests_ongoing = false;
+        // terminate workers
+        break;
+      }
+
+      // pass request to workers
       DWMessage dw_message;
       dw_message.request_id = cd_message.request_id;
       dw_message.data = cd_message.data;
       mq_send(dw_channel, (char*)&dw_message, sizeof(DWMessage), 0);
       requests_todo++;
+    }
+    
+    usleep(1000000); // 1 second
 
+    for (int i=0; i<MQ_MAX_MESSAGES && (0 < requests_todo); i++){
       // receive message from workers
       WDMessage wd_message;
       mq_receive(wd_channel, (char*)&wd_message, sizeof(WDMessage), 0);
       requests_todo--;
-      
+
       // print response
       printf("dealer got response %d %d\n", wd_message.request_id, wd_message.result);
-    }    
+    }  
+
+    usleep(1000000); // 1 second
   }
+
+  printf("read well\n");
 
   // send message to all workers to close
   for (int i=0; i<N_SERV1; i++){
