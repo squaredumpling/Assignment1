@@ -31,15 +31,12 @@ static void rsleep (int t);
 int main (int argc, char * argv[])
 {
     // open chennels
-    mqd_t dw_channel = mq_open(argv[1], O_RDONLY);
+    mqd_t dw1_channel = mq_open(argv[1], O_RDONLY);
     mqd_t wd_channel = mq_open(argv[2], O_WRONLY);
 
     // test channels
-    if (dw_channel == -1)
-        printf("dw channel creation error\n");
-
-    if (wd_channel == -1)
-        printf("wd channel creation error\n");
+    if (dw1_channel == -1) printf("dw2 channel creation error\n");
+    if (wd_channel == -1) printf("wd channel creation error\n");
 
     DWMessage dw_message;
     WDMessage wd_message;
@@ -48,12 +45,10 @@ int main (int argc, char * argv[])
     while (true) {
 
         // read from queue
-        mq_receive(dw_channel, (char*)&dw_message, sizeof(DWMessage), 0);
-        printf("workers1 read %d %d\n", dw_message.request_id, dw_message.data);
+        mq_receive(dw1_channel, (char*)&dw_message, sizeof(DWMessage), 0);
+        printf("%s read %d %d\n", argv[0], dw_message.request_id, dw_message.data);
 
-        if (dw_message.request_id == -1){
-            break;
-        }
+        if (dw_message.request_id == -1) break;
 
         // sleep max 10 miliseconds
         rsleep(10000);
@@ -66,7 +61,7 @@ int main (int argc, char * argv[])
     }
 
     // close message queues
-    mq_close(dw_channel);
+    mq_close(dw1_channel);
     mq_close(wd_channel);
 
     // unlink message queues

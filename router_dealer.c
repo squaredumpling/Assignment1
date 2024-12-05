@@ -2,8 +2,9 @@
  * Operating Systems  (2INCO)  Practical Assignment
  * Interprocess Communication
  *
- * STUDENT_NAME_1 (STUDENT_NR_1)
- * STUDENT_NAME_2 (STUDENT_NR_2)
+ * Mihnea Buzoiu 1923552
+ * Filip Cuciuc 1659626
+ * Tudor Suteu 1961233
  *
  * Grading:
  * Your work will be evaluated based on the following criteria:
@@ -45,6 +46,7 @@ int main (int argc, char * argv[])
 
   mq_unlink(client_to_dealer_name);
   mq_unlink(dealer_to_worker1_name); 
+  mq_unlink(dealer_to_worker2_name); 
   mq_unlink(worker_to_dealer_name);
 
   // open client to dealer message queue
@@ -53,11 +55,13 @@ int main (int argc, char * argv[])
   cdattr.mq_msgsize = sizeof(CDMessage);
   mqd_t cd_channel = mq_open(client_to_dealer_name, O_CREAT | O_RDONLY | O_EXCL, 0600, &cdattr);
 
-  // open dealer to worker message queue
+  // open dealer to worker message queues
   struct mq_attr dwattr;
   dwattr.mq_maxmsg = MQ_MAX_MESSAGES;
   dwattr.mq_msgsize = sizeof(DWMessage);
-  mqd_t dw_channel = mq_open(dealer_to_worker1_name, O_CREAT | O_WRONLY | O_EXCL, 0600, &dwattr);
+  mqd_t dw1_channel = mq_open(dealer_to_worker1_name, O_CREAT | O_WRONLY | O_EXCL, 0600, &dwattr);
+  mqd_t dw2_channel = mq_open(dealer_to_worker2_name, O_CREAT | O_WRONLY | O_EXCL, 0600, &dwattr);
+  
 
   // open worker to dealer message queue
   struct mq_attr wdattr;
@@ -67,9 +71,8 @@ int main (int argc, char * argv[])
 
   // test channels
   if (cd_channel == -1) printf("cd channel creation error\n");
-
-  if (dw_channel == -1) printf("dw channel creation error\n");
-  
+  if (dw1_channel == -1) printf("dw1 channel creation error\n");
+  if (dw2_channel == -1) printf("dw2 channel creation error\n");
   if (wd_channel == -1) printf("wd channel creation error\n");
 
 
@@ -105,7 +108,7 @@ int main (int argc, char * argv[])
       sprintf(worker_name, "serv2worker%d", i);
 
       // execute the worker code
-      int retcode = execlp("./worker_s2", worker_name, dealer_to_worker1_name, worker_to_dealer_name, NULL);
+      int retcode = execlp("./worker_s2", worker_name, dealer_to_worker2_name, worker_to_dealer_name, NULL);
       printf("worker error %d\n", retcode);
     }
   }
@@ -124,7 +127,7 @@ int main (int argc, char * argv[])
 
       if (cd_message.request_id == -1){
         requests_ongoing = false;
-        // terminate workers
+        // terminate workers function maybe
         break;
       }
 
@@ -132,11 +135,15 @@ int main (int argc, char * argv[])
       DWMessage dw_message;
       dw_message.request_id = cd_message.request_id;
       dw_message.data = cd_message.data;
-      mq_send(dw_channel, (char*)&dw_message, sizeof(DWMessage), 0);
+      
+      switch (cd_message.service_id){
+        case 1: mq_send(dw1_channel, (char*)&dw_message, sizeof(DWMessage), 0); break;
+        case 2: mq_send(dw2_channel, (char*)&dw_message, sizeof(DWMessage), 0); break;
+      }
       requests_todo++;
     }
     
-    usleep(1000000); // 1 second
+    //usleep(1000000); // 1 second
 
     for (int i=0; i<MQ_MAX_MESSAGES && (0 < requests_todo); i++){
       // receive message from workers
@@ -148,15 +155,21 @@ int main (int argc, char * argv[])
       printf("dealer got response %d %d\n", wd_message.request_id, wd_message.result);
     }  
 
-    usleep(1000000); // 1 second
+    //usleep(1000000); // 1 second
   }
 
   printf("read well\n");
 
-  // send message to all workers to close
+  // send message to all workers1 to close
   for (int i=0; i<N_SERV1; i++){
     DWMessage terminate_message = {-1, 0};
-    mq_send(dw_channel, (char*)&terminate_message, sizeof(DWMessage), 0);
+    mq_send(dw1_channel, (char*)&terminate_message, sizeof(DWMessage), 0);
+  }
+
+  // send message to all workers2 to close
+  for (int i=0; i<N_SERV2; i++){
+    DWMessage terminate_message = {-1, 0};
+    mq_send(dw2_channel, (char*)&terminate_message, sizeof(DWMessage), 0);
   }
 
   // wait for them to close
@@ -166,12 +179,14 @@ int main (int argc, char * argv[])
 
   // close channels
   mq_close(cd_channel);
-  mq_close(dw_channel);
+  mq_close(dw1_channel);
+  mq_close(dw2_channel);
   mq_close(wd_channel);
 
   // unlink channels
   mq_unlink(client_to_dealer_name);
   mq_unlink(dealer_to_worker1_name);
+  mq_unlink(dealer_to_worker2_name);
   mq_unlink(worker_to_dealer_name);
 
   printf("\npeace out\n");

@@ -30,37 +30,37 @@ static void rsleep (int t);
 int main (int argc, char * argv[])
 {
     // open queues
-    mqd_t dw_channel = mq_open(argv[1], O_RDONLY);
+    mqd_t dw2_channel = mq_open(argv[1], O_RDONLY);
     mqd_t wd_channel = mq_open(argv[2], O_WRONLY);
 
     // channel opening error
-    if (dw_channel == -1) printf("dw channel creation error\n");
+    if (dw2_channel == -1) printf("dw2 channel creation error\n");
     if (wd_channel == -1) printf("wd channel creation error\n");
 
     DWMessage dw_message;
     WDMessage wd_message;
 
     // loop until you receive terminate message
-    while (dw_message.request_id != -1){
+    while (true){
         // read from queue
-        mq_receive(dw_channel, (char*)&dw_message, sizeof(DWMessage), 0);
-        printf("workers2 read %d %d\n", dw_message.request_id, dw_message.data);
+        mq_receive(dw2_channel, (char*)&dw_message, sizeof(DWMessage), 0);
+        printf("%s read %d %d\n", argv[0], dw_message.request_id, dw_message.data);
+
+        if (dw_message.request_id == -1) break;
 
         // sleep max 10 miliseconds
         rsleep(10000); 
 
-        // do service 2
-        dw_message.data = service(dw_message.data);
 
-        //write response
+        //write response with service 2
         wd_message.request_id = dw_message.request_id;
-        wd_message.result = dw_message.data;
+        wd_message.result = service(dw_message.data);
         mq_send(wd_channel, (char*)&wd_message, sizeof(WDMessage), 0);
         printf("%s wrote %d %d\n", argv[0], wd_message.request_id, wd_message.result);
     }
 
     // close message queues
-    mq_close(dw_channel);
+    mq_close(dw2_channel);
     mq_close(wd_channel);
 
     // unlink message queues
