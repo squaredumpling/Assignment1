@@ -35,8 +35,8 @@ int main (int argc, char * argv[])
     mqd_t wd_channel = mq_open(argv[2], O_WRONLY);
 
     // test channels
-    if (dw1_channel == -1) printf("dw2 channel creation error\n");
-    if (wd_channel == -1) printf("wd channel creation error\n");
+    if (dw1_channel == -1) { perror("dw2 channel open error\n"); exit(10); }
+    if (wd_channel == -1) { perror("wd channel open error\n"); exit(10); }
 
     DWMessage dw_message;
     WDMessage wd_message;
@@ -45,8 +45,8 @@ int main (int argc, char * argv[])
     while (true) {
 
         // read from queue
-        mq_receive(dw1_channel, (char*)&dw_message, sizeof(DWMessage), 0);
-        // printf("%s read %d %d\n", argv[0], dw_message.request_id, dw_message.data);
+        int retcode5 = mq_receive(dw1_channel, (char*)&dw_message, sizeof(DWMessage), 0);
+        if (retcode5 == -1) { perror("worker receive error\n"); exit(5); }
 
         if (dw_message.request_id == -1) break;
 
@@ -56,19 +56,13 @@ int main (int argc, char * argv[])
         //write response with service 1
         wd_message.request_id = dw_message.request_id;
         wd_message.result = service(dw_message.data);
-        mq_send(wd_channel, (char*)&wd_message, sizeof(WDMessage), 0);
-        // printf("%s wrote %d %d\n", argv[0], wd_message.request_id, wd_message.result);
+        int retcode6 = mq_send(wd_channel, (char*)&wd_message, sizeof(WDMessage), 0);
+        if (retcode6 == -1) { perror("dealer send error\n"); exit(6); }
     }
 
     // close message queues
-    mq_close(dw1_channel);
-    mq_close(wd_channel);
-
-    // unlink message queues
-    mq_unlink(argv[1]);
-    mq_unlink(argv[2]);
-
-    // printf("%s done\n", argv[0]);
+    if (mq_close(dw1_channel) == -1) { perror("close channel error\n"); exit(8); }
+    if (mq_close(wd_channel) == -1) { perror("close channel error\n"); exit(8); }
 
     exit(0);
 }

@@ -38,14 +38,12 @@ char worker_to_dealer_name[30] = "/response_queue_group48";
 int main (int argc, char * argv[])
 {
   // argument safety
-  if (argc != 1) fprintf (stderr, "%s: invalid arguments\n", argv[0]);
-  
-  // printf("dealer ready\n\n");
+  if (argc != 1) { fprintf (stderr, "%s: invalid arguments\n", argv[0]); exit(1); }
 
-  mq_unlink(client_to_dealer_name);
-  mq_unlink(dealer_to_worker1_name); 
-  mq_unlink(dealer_to_worker2_name); 
-  mq_unlink(worker_to_dealer_name);
+  // mq_unlink(client_to_dealer_name);
+  // mq_unlink(dealer_to_worker1_name);
+  // mq_unlink(dealer_to_worker2_name);
+  // mq_unlink(worker_to_dealer_name);
 
   // open client to dealer message queue
   struct mq_attr cdattr;
@@ -68,18 +66,15 @@ int main (int argc, char * argv[])
   mqd_t wd_channel = mq_open(worker_to_dealer_name, O_CREAT | O_RDONLY | O_EXCL, 0600, &wdattr);
 
   // test channels
-  if (cd_channel == -1) printf("cd channel creation error\n");
-  if (dw1_channel == -1) printf("dw1 channel creation error\n");
-  if (dw2_channel == -1) printf("dw2 channel creation error\n");
-  if (wd_channel == -1) printf("wd channel creation error\n");
-
-
+  if (cd_channel == -1) { perror("cd channel creation error\n"); exit(2); }
+  if (dw1_channel == -1) { perror("dw1 channel creation error\n"); exit(2); }
+  if (dw2_channel == -1) { perror("dw2 channel creation error\n"); exit(2); }
+  if (wd_channel == -1) { perror("wd channel creation error\n"); exit(2); }
 
   // create client process
   int pid = fork();
-  if (pid == 0){
-    execlp("./client", "client", client_to_dealer_name, NULL);
-  }
+  if (pid == 0) execlp("./client", "client", client_to_dealer_name, NULL);
+  if (pid == -1) { perror("client creation error\n"); exit(3); }
 
   // initialize service 1 workers
   for (int i=0; i<N_SERV1; i++) {
@@ -91,9 +86,11 @@ int main (int argc, char * argv[])
       sprintf(worker_name, "serv1worker%d", i);
 
       // execute the worker code
-      int retcode = execlp("./worker_s1", worker_name, dealer_to_worker1_name, worker_to_dealer_name, NULL);
-      printf("worker error %d\n", retcode);
+      int retcode11 = execlp("./worker_s1", worker_name, dealer_to_worker1_name, worker_to_dealer_name, NULL);
+      if (retcode11 == -1) { perror("execlp error"); exit(11); }
     }
+
+    if (pid == -1) { perror("worker creation error"); exit(4); }
   }
 
   // initialize service 2 workers
@@ -106,9 +103,11 @@ int main (int argc, char * argv[])
       sprintf(worker_name, "serv2worker%d", i);
 
       // execute the worker code
-      int retcode = execlp("./worker_s2", worker_name, dealer_to_worker2_name, worker_to_dealer_name, NULL);
-      printf("worker error %d\n", retcode);
+      int retcode11 = execlp("./worker_s2", worker_name, dealer_to_worker2_name, worker_to_dealer_name, NULL);
+      if (retcode11 == -1) { perror("execlp error"); exit(11); }
     }
+
+    if (pid == -1) { perror("worker creation error\n"); exit(4); }
   }
 
 
@@ -120,12 +119,13 @@ int main (int argc, char * argv[])
     for (int i=0; i<MQ_MAX_MESSAGES; i++){
       // receive request from client
       CDMessage cd_message;
-      mq_receive(cd_channel, (char*)&cd_message, sizeof(CDMessage), 0);
+      int retcode5 = mq_receive(cd_channel, (char*)&cd_message, sizeof(CDMessage), 0);
+      if (retcode5 == -1) { perror("dealer receive error\n"); exit(5); }
       // printf("dealer got request %d %d %d\n", cd_message.request_id, cd_message.data, cd_message.service_id);
 
+      // if client sent end message stop reading
       if (cd_message.request_id == -1){
         requests_ongoing = false;
-        // terminate workers function maybe
         break;
       }
 
@@ -135,17 +135,20 @@ int main (int argc, char * argv[])
       dw_message.data = cd_message.data;
       
       // select type of worker
+      int retcode6;
       switch (cd_message.service_id){
-        case 1: mq_send(dw1_channel, (char*)&dw_message, sizeof(DWMessage), 0); break;
-        case 2: mq_send(dw2_channel, (char*)&dw_message, sizeof(DWMessage), 0); break;
+        case 1: retcode6 = mq_send(dw1_channel, (char*)&dw_message, sizeof(DWMessage), 0); break;
+        case 2: retcode6 = mq_send(dw2_channel, (char*)&dw_message, sizeof(DWMessage), 0); break;
       }
+      if (retcode6 == -1) { perror("dealer send error\n"); exit(6); }
       requests_todo++;
     }
 
     for (int i=0; i<MQ_MAX_MESSAGES && (0 < requests_todo); i++){
       // receive message from workers
       WDMessage wd_message;
-      mq_receive(wd_channel, (char*)&wd_message, sizeof(WDMessage), 0);
+      int retcode5 = mq_receive(wd_channel, (char*)&wd_message, sizeof(WDMessage), 0);
+      if (retcode5 == -1) { perror("dealer receive error\n"); exit(5); }
       requests_todo--;
 
       // print response
@@ -158,33 +161,35 @@ int main (int argc, char * argv[])
   // send message to all workers1 to close
   for (int i=0; i<N_SERV1; i++){
     DWMessage terminate_message = {-1, 0};
-    mq_send(dw1_channel, (char*)&terminate_message, sizeof(DWMessage), 0);
+    int retcode6 = mq_send(dw1_channel, (char*)&terminate_message, sizeof(DWMessage), 0);
+    if (retcode6 == -1) { perror("dealer send error\n"); exit(6); }
   }
 
   // send message to all workers2 to close
   for (int i=0; i<N_SERV2; i++){
     DWMessage terminate_message = {-1, 0};
-    mq_send(dw2_channel, (char*)&terminate_message, sizeof(DWMessage), 0);
+    int retcode6 = mq_send(dw2_channel, (char*)&terminate_message, sizeof(DWMessage), 0);
+    if (retcode6 == -1) { perror("dealer send error\n"); exit(6); }
   }
 
   // wait for them to close
   int worker_id;
-  while (0 < (worker_id = wait(NULL))) {}
+  while (0 < (worker_id = wait(NULL))) {
+    if (worker_id == -1) { perror("dealer wait error\n"); exit(7); }
+  }
   //printf("\nall workers terminated\n");
 
   // close channels
-  mq_close(cd_channel);
-  mq_close(dw1_channel);
-  mq_close(dw2_channel);
-  mq_close(wd_channel);
+  if (mq_close(cd_channel) == -1) { perror("close channel error\n"); exit(8); }
+  if (mq_close(dw1_channel) == -1) { perror("close channel error\n"); exit(8); }
+  if (mq_close(dw2_channel) == -1)  { perror("close channel error\n"); exit(8); }
+  if (mq_close(wd_channel) == -1)  { perror("close channel error\n"); exit(8); }
 
   // unlink channels
-  mq_unlink(client_to_dealer_name);
-  mq_unlink(dealer_to_worker1_name);
-  mq_unlink(dealer_to_worker2_name);
-  mq_unlink(worker_to_dealer_name);
-
-  //printf("\npeace out\n");
+  if (mq_unlink(client_to_dealer_name) == -1) { perror("cd channel unlink error\n"); exit(9); }
+  if (mq_unlink(dealer_to_worker1_name) == -1) { perror("dw1 channel unlink error\n"); exit(9); }
+  if (mq_unlink(dealer_to_worker2_name) == -1) { perror("dw2 channel unlink error\n"); exit(9); }
+  if (mq_unlink(worker_to_dealer_name) == -1) { perror("wd channel unlink error\n"); exit(9); }
 
   return (0);
 }

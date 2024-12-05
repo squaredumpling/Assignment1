@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "errno.h": "c",
-        "unistd.h": "c"
+        "unistd.h": "c",
+        "stdlib.h": "c"
     }
 }

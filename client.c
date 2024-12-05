@@ -29,32 +29,27 @@ int main (int argc, char * argv[])
 {
     // create channel
     mqd_t request_channel = mq_open(argv[1], O_WRONLY);
-
-    // test channels
-    if (request_channel == -1) printf("request channel creation error\n");
+    if (request_channel == -1) { perror("request channel open error\n"); exit(10); }
 
     // repeatingly get the next job and send the request to the dealer queue
     Request request;
     while (getNextRequest(&request.job, &request.data, &request.service) == 0) {
-        //printf("client has requested %d %d %d\n", request.job, request.data, request.service);
-        
         // make a client dealer message to standardize communication
         CDMessage cd_message;
         cd_message.request_id = request.job;
         cd_message.data = request.data;
         cd_message.service_id = request.service;
-        mq_send(request_channel, (char*)&cd_message, sizeof(CDMessage), 0);
+        int retcode6 = mq_send(request_channel, (char*)&cd_message, sizeof(CDMessage), 0);
+        if (retcode6 == -1) { perror("client send error\n"); exit(6); }
     }     
 
     // send end of requests message
     CDMessage requests_finished = {-1, 0, 0};
-    mq_send(request_channel, (char*)&requests_finished, sizeof(CDMessage), 0);
+    int retcode6 = mq_send(request_channel, (char*)&requests_finished, sizeof(CDMessage), 0);
+    if (retcode6 == -1) { perror("client send error\n"); exit(6); }
 
     // close message queue
-    mq_close(request_channel);
-
-    //unlink message queue
-    mq_unlink(argv[1]);
+    if (mq_close(request_channel) == -1)  { perror("close channel error\n"); exit(8); }
     
     exit(0);
 }
